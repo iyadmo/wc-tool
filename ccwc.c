@@ -1,121 +1,102 @@
-#include<stdio.h>
-#include<string.h>
-#include<ctype.h>
-int main(int argc, char *argv[]){
-int ch;
-FILE *fp;
-int count=0;
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
 
-if(argc==2 && argv[1][0]!='-'){
-fp= fopen(argv[1],"r");
+void count_all(FILE *fp, int *lines, int *words, int *bytes) {
+    int ch, inword = 0;
+    *lines = *words = *bytes = 0;
 
-int count1=0;
-int count2=0;
-int count3=0;
-while((ch=fgetc(fp))!=EOF){
-count1=count1+1;
-}
-rewind(fp);
-while((ch=fgetc(fp))!=EOF){
-if(ch=='\n'){
-count2=count2+1;
-}
-}
-rewind(fp);
-int inword1=0;
-while((ch=fgetc(fp))!=EOF){
-if(!isspace(ch)){
-if(inword1==0){
-count3=count3+1;
-inword1=1;
-}
-}
-else{
-inword1=0;
-}
-}
-printf("%d %d %d %s\n", count2, count3,count1,argv[1]);
-}
-else if(argc==2 && argv[1][0]=='-'){
-fp=stdin;
-if(strcmp(argv[1],"-c")==0){
-while((ch= fgetc(fp))!=EOF){
-count = count+1;
- 
-}
-}
-else if(strcmp(argv[1],"-l")==0){   
-while((ch=fgetc(fp))!=EOF){
-if(ch=='\n'){
-count = count + 1;
-
-}
-}
+    while ((ch = fgetc(fp)) != EOF) {
+        (*bytes)++;
+        if (ch == '\n') (*lines)++;
+        if (!isspace(ch)) {
+            if (!inword) { (*words)++; inword = 1; }
+        } else {
+            inword = 0;
+        }
+    }
 }
 
-else if(strcmp(argv[1],"-w")==0){
-int inword=0;
-while((ch=fgetc(fp))!=EOF){
-if(!isspace(ch)){
-if(inword==0){
-count=count+1;
-inword=1;
-}
-}
-else{
-inword=0;
-}
-}
-}
-else if(strcmp(argv[1],"-m")==0){
-while((ch= fgetc(fp))!=EOF){
-count = count+1; 
-
-}
-}
-printf("%d\n",count);
-}
-else{
-
-fp= fopen(argv[2],"r");
-if(strcmp(argv[1],"-c")==0){
-while((ch= fgetc(fp))!=EOF){
-count = count+1;
-
-}
-}
-else if(strcmp(argv[1],"-l")==0){
-while((ch=fgetc(fp))!=EOF){
-if(ch=='\n'){
-count = count + 1;
-
-}
-}
+int count_lines(FILE *fp) {
+    int ch, count = 0;
+    while ((ch = fgetc(fp)) != EOF)
+        if (ch == '\n') count++;
+    return count;
 }
 
-else if(strcmp(argv[1],"-w")==0){
-int inword=0;
-while((ch=fgetc(fp))!=EOF){
-if(!isspace(ch)){
-if(inword==0){
-count=count+1;
-inword=1;
-}
+int count_words(FILE *fp) {
+    int ch, count = 0, inword = 0;
+    while ((ch = fgetc(fp)) != EOF) {
+        if (!isspace(ch)) { if (!inword) { count++; inword = 1; } }
+        else inword = 0;
+    }
+    return count;
 }
 
+int count_bytes(FILE *fp) {
+    int ch, count = 0;
+    while ((ch = fgetc(fp)) != EOF) count++;
+    return count;
+}
 
-else{
-inword=0;
-}
-}
-}
-else if(strcmp(argv[1],"-m")==0){
-while((ch= fgetc(fp))!=EOF){
-count = count+1;
+int main(int argc, char *argv[]) {
+    FILE *fp = NULL;
+    char *filename = NULL;
+    char *flag = NULL;
 
-}
-}
-printf("%d %s\n",count,argv[2]);
-return 0;
-}
+    // Determine flag and filename
+    if (argc == 1) {
+        fp = stdin;
+    } else if (argc == 2) {
+        if (argv[1][0] == '-') {
+            flag = argv[1];
+            fp = stdin;
+        } else {
+            filename = argv[1];
+        }
+    } else if (argc == 3) {
+        flag = argv[1];
+        filename = argv[2];
+    } else {
+        fprintf(stderr, "Usage: ccwc [-c|-l|-w|-m] [file]\n");
+        return 1;
+    }
+
+    if (filename) {
+        fp = fopen(filename, "r");
+        if (!fp) {
+            fprintf(stderr, "ccwc: %s: No such file or directory\n", filename);
+            return 1;
+        }
+    }
+
+    if (!flag) {
+        // No flag: print all three counts
+        int l, w, b;
+        count_all(fp, &l, &w, &b);
+        if (filename)
+            printf("%d %d %d %s\n", l, w, b, filename);
+        else
+            printf("%d %d %d\n", l, w, b);
+    } else {
+        int count = 0;
+        if      (strcmp(flag, "-l") == 0) count = count_lines(fp);
+        else if (strcmp(flag, "-w") == 0) count = count_words(fp);
+        else if (strcmp(flag, "-c") == 0) count = count_bytes(fp);
+        else if (strcmp(flag, "-m") == 0) count = count_bytes(fp); // placeholder
+        else {
+            fprintf(stderr, "ccwc: unknown flag %s\n", flag);
+            if (filename) fclose(fp);
+            return 1;
+        }
+
+        if (filename)
+            printf("%d %s\n", count, filename);
+        else
+            printf("%d\n", count);
+    }
+
+    if (filename) fclose(fp);
+    return 0;
 }
